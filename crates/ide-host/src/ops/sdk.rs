@@ -48,7 +48,37 @@ pub async fn sdk_project_libraries(host: &Host, window: &str) -> IdeResult<Vec<i
                 version: c.version,
             })
             .collect();
-        ide_sdk::libraries::project_libraries(&root, &settings, &deps)
+        let mut groups = ide_sdk::libraries::project_libraries(&root, &settings, &deps);
+        groups.extend(ide_sdk::libraries::project_structure_groups(&root, &settings));
+        groups
+    })
+    .await
+    .map_err(join_err)
+}
+
+/// Project Structure › Modules / Libraries: Maven and Gradle modules from the
+/// build model (their library jars located in the local repositories) and the
+/// modules and libraries added by hand.
+pub async fn sdk_project_modules(host: &Host, window: &str) -> IdeResult<ide_build::modules::ProjectModules> {
+    let project = host.project(window)?;
+    let (root, cache, settings) = (project.root.clone(), project.build_cache_dir(), project.settings.effective());
+    tokio::task::spawn_blocking(move || {
+        let model = crate::ops::build::load(&root, &cache, &settings);
+        let mut modules = ide_build::modules::project_modules(&root, &model, &settings.project_structure);
+        let jars = ide_sdk::libraries::JarLocator::new(&root, &settings);
+        for lib in &mut modules.libraries {
+            let Some(c) = &lib.coordinate else { continue };
+            let dep = ide_sdk::libraries::BuildDependency {
+                gradle: lib.origin == ide_build::modules::ModuleOrigin::Gradle,
+                group: c.group_id.clone(),
+                artifact: c.artifact_id.clone(),
+                version: c.version.clone(),
+            };
+            let (classes, sources) = jars.locate(&dep);
+            lib.classes = classes.map(|p| p.to_string_lossy().into_owned()).into_iter().collect();
+            lib.sources = sources.map(|p| p.to_string_lossy().into_owned()).into_iter().collect();
+        }
+        modules
     })
     .await
     .map_err(join_err)
@@ -137,6 +167,7 @@ pub(crate) fn register(d: &mut Dispatcher) {
     d.add("sdk_detect", |c| async move { sdk_detect(&c.host, &c.window, c.arg("kind")?).await });
     d.add("sdk_python_effective", |c| async move { sdk_python_effective(&c.host, &c.window) });
     d.add("sdk_project_libraries", |c| async move { sdk_project_libraries(&c.host, &c.window).await });
+    d.add("sdk_project_modules", |c| async move { sdk_project_modules(&c.host, &c.window).await });
     d.add("sdk_locate_tools", |c| async move {
         sdk_locate_tools(&c.host, &c.window, c.arg("names")?, c.arg("near")?).await
     });

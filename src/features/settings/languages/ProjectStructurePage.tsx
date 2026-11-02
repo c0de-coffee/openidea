@@ -168,15 +168,31 @@ function ExcludeFiles() {
   );
 }
 
-export function ProjectStructurePage() {
-  const root = useProject((s) => s.project?.root ?? null);
-  const name = useProject((s) => s.project?.name ?? "");
+const NO_ROOTS: string[] = [];
+
+/** A module's content root: the Sources tab of Project Structure › Modules shows only that folder. */
+export interface ModuleScope {
+  /** Project-relative; `""` = the project folder. */
+  contentRoot: string;
+  name: string;
+}
+
+export function ProjectStructurePage({ module }: { module?: ModuleScope } = {}) {
+  const projectRoot = useProject((s) => s.project?.root ?? null);
+  const projectName = useProject((s) => s.project?.name ?? "");
+  const scope = module?.contentRoot ?? "";
+  const root = projectRoot;
+  const name = module?.name ?? projectName;
   const [ps, setPs] = useStructure();
   const detected = useDetectedRoots();
-  const roots = useMemo(() => effectiveRoots(detected, ps), [detected, ps]);
+  const roots = useMemo(
+    () => effectiveRoots(detected, ps).filter((r) => !scope || inside(scope, r.path)),
+    [detected, ps, scope],
+  );
   useEffect(() => initProjectRoots(), []);
+  const scopePath = projectRoot && scope ? `${projectRoot}/${scope}` : projectRoot;
   const [children, setChildren] = useState<Map<string, DirNode[]>>(new Map());
-  const [expanded, setExpanded] = useState<Set<string>>(() => new Set(root ? [root] : []));
+  const [expanded, setExpanded] = useState<Set<string>>(() => new Set(scopePath ? [scopePath] : []));
   const [selected, setSelected] = useState<DirNode | null>(null);
 
   const load = useCallback(
@@ -188,13 +204,18 @@ export function ProjectStructurePage() {
     [root],
   );
 
-  const rootNode = useMemo<DirNode | null>(() => (root ? { path: root, name, rel: "" } : null), [root, name]);
+  const rootNode = useMemo<DirNode | null>(
+    () => (scopePath ? { path: scopePath, name, rel: scope } : null),
+    [scopePath, name, scope],
+  );
+  // A module shows its own content root only; the project page lists the extra content roots too.
+  const extraRoots = module ? NO_ROOTS : ps.contentRoots;
   const treeRoots = useMemo<DirNode[]>(
     () =>
       rootNode
         ? [
             rootNode,
-            ...ps.contentRoots.map((p) => ({
+            ...extraRoots.map((p) => ({
               path: p,
               name: p.slice(p.lastIndexOf("/") + 1) || p,
               rel: null,
@@ -202,19 +223,19 @@ export function ProjectStructurePage() {
             })),
           ]
         : [],
-    [rootNode, ps.contentRoots],
+    [rootNode, extraRoots],
   );
   useEffect(() => {
-    if (!root) return;
+    if (!root || !scopePath) return;
     let live = true;
-    for (const dir of [root, ...ps.contentRoots])
+    for (const dir of [scopePath, ...extraRoots])
       void readDirs(root, dir)
         .then((dirs) => live && setChildren((m) => new Map(m).set(dir, dirs)))
         .catch(() => {});
     return () => {
       live = false;
     };
-  }, [root, ps.contentRoots]);
+  }, [root, scopePath, extraRoots]);
 
   if (!rootNode)
     return (
@@ -271,16 +292,29 @@ export function ProjectStructurePage() {
               getIcon={(n) => {
                 if (n.rel === null) return n.contentRoot ? "module" : folderIconName("plain");
                 const r = rootRole(roots, n.rel);
-                if (!n.rel && !r) return "module";
+                if (n.rel === scope && !r) return "module";
                 return folderIconName(r ? ROLES.find((x) => x.role === r)!.kind : "plain");
               }}
-              getDetail={(n) => (n.rel === "" ? (root ?? undefined) : n.contentRoot ? n.path : undefined)}
+              // In a module the panel on the right already shows its path; the tree keeps the name readable.
+              getDetail={(n) =>
+                n.rel === scope ? (module ? undefined : rootNode.path) : n.contentRoot ? n.path : undefined
+              }
             />
           </div>
-          <ExcludeFiles />
+          {!module && <ExcludeFiles />}
         </div>
         <div className={styles.roots} aria-label={tx("Marked folders")}>
-          <ContentRoots root={rootNode.path} />
+          {module ? (
+            <div className={styles.rootGroup}>
+              <div className={clsx(styles.rootItem, styles.contentRoot)}>
+                <span className={styles.rootPath} title={rootNode.path}>
+                  {rootNode.path}
+                </span>
+              </div>
+            </div>
+          ) : (
+            <ContentRoots root={rootNode.path} />
+          )}
           {ROLES.map((r) => {
             const list = roots.filter((x) => x.kind === r.role);
             return (

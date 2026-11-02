@@ -318,6 +318,7 @@ pub fn builder() -> tauri_specta::Builder<tauri::Wry> {
         sdk::sdk_detect,
         sdk::sdk_python_effective,
         sdk::sdk_project_libraries,
+        sdk::sdk_project_modules,
         sdk::sdk_locate_tools,
         sdk::sdk_python_create_venv,
         sdk::sdk_python_packages,

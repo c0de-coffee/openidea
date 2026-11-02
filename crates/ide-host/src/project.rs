@@ -156,6 +156,8 @@ impl Host {
                 ide_sdk::apply::server_protocol_overrides(cfg, &effective);
                 let excluded_poms = unlinked_maven_poms(&root, &effective);
                 ide_sdk::apply::configure_maven_import(cfg, &root, &excluded_poms);
+                // Last: it replaces the workspace the steps above chose.
+                ide_sdk::java_modules::configure(cfg, &root, &effective, &data_dir);
             }));
         }
         {
@@ -179,8 +181,18 @@ impl Host {
         }
         {
             let settings = settings.clone();
+            let root = root.clone();
             lsp.set_servers_hook(Box::new(move |language, defined| {
-                ide_sdk::apply::language_servers(language.as_str(), defined, &settings.effective())
+                let effective = settings.effective();
+                let mut servers = ide_sdk::apply::language_servers(language.as_str(), defined, &effective);
+                // With Project Structure modules one jdtls serves the whole project: a
+                // module's `.project` / `build.xml` must not start a server of its own.
+                if ide_sdk::java_modules::active(&root, &effective) {
+                    for s in servers.iter_mut().filter(|s| s.name == "jdtls") {
+                        s.root_markers.clear();
+                    }
+                }
+                servers
             }));
         }
         {

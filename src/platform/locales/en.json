@@ -360,6 +360,7 @@
   "menu.file.newProject": "New Project…",
   "menu.file.renameProject": "Rename Project…",
   "menu.file.reloadAllFromDisk": "Reload All from Disk",
+  "menu.file.projectStructure": "Project Structure…",
   "menu.file.invalidateCaches": "Invalidate Caches…",
   "menu.manageIdeSettings": "Manage IDE Settings",
   "menu.file.exportSettings": "Export Settings…",

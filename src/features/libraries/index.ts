@@ -96,6 +96,8 @@ const sdkKey = (s: ReturnType<typeof useProject.getState>) => {
     l?.rust?.stdlib,
     l?.go?.goroot,
     l?.go?.gopath,
+    // Project Structure › Libraries.
+    s.settings?.projectStructure?.libraries,
   ]);
 };
 

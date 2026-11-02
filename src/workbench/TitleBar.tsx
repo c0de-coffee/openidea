@@ -155,6 +155,7 @@ export function gearMenuItems(
     { kind: "action", action: "runAnything.show" },
     { kind: "separator" },
     { kind: "action", action: "file.settings" },
+    { kind: "action", action: "file.projectStructure" },
     { kind: "action", action: "plugins.settings" },
     { kind: "separator" },
     {

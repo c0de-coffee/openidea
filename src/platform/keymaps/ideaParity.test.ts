@@ -28,6 +28,7 @@ describe("IDEA keymap parity", () => {
     ["project.open", ["F4", "Meta+Down"], ["F4"]],
     ["project.delete", ["Delete", "Backspace", "Meta+Backspace"], ["Delete"]],
     ["file.reloadFromDisk", ["Meta+Alt+Y"], ["Ctrl+Alt+Y"]],
+    ["file.projectStructure", ["Meta+;"], ["Ctrl+Alt+Shift+S"]],
     ["project.reloadFromDisk", ["Meta+Alt+Y"], ["Ctrl+Alt+Y"]],
     ["project.expandAll", ["Meta+="], ["Ctrl+="]],
     ["project.collapseAll", ["Meta+-"], ["Ctrl+-"]],

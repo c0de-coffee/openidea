@@ -80,12 +80,27 @@ export function openSettings(pageId?: string, opts: { newProjects?: boolean } = 
   void loadGlobalBase();
 }
 
+/**
+ * Starts editing the current settings without the Settings dialog (Project
+ * Structure stages its edits here and writes them with `applySettings`).
+ */
+export function beginStaging() {
+  const base = validateSettings(useProject.getState().settings);
+  useSettingsDialog.setState({ base, globalBase: base, staged: {}, saving: false, error: null, query: "" });
+  void loadGlobalBase(true);
+}
+
+/** Drops the edits staged with `beginStaging`. */
+export function discardStaged() {
+  useSettingsDialog.setState({ staged: {}, error: null });
+}
+
 /** With a project open the effective settings include its values; the Global scope shows the global layer. */
-async function loadGlobalBase() {
+async function loadGlobalBase(always = false) {
   if (!isTauri() || !useProject.getState().project) return;
   try {
     const globalBase = validateSettings(await commands.settingsGetGlobal());
-    useSettingsDialog.setState((s) => (s.open ? { globalBase } : {}));
+    useSettingsDialog.setState((s) => (s.open || always ? { globalBase } : {}));
   } catch (e) {
     console.warn("cannot load global settings", e);
   }

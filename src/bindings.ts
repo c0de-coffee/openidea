@@ -632,6 +632,8 @@ export const commands = {
 	 *  with the Maven / Gradle dependency jars of the build model.
 	 */
 	sdkProjectLibraries: () => typedError<LibraryGroup[], IdeError>(__TAURI_INVOKE("sdk_project_libraries")),
+	/**  Project Structure › Modules / Libraries: imported (Maven / Gradle) and hand-made modules and libraries. */
+	sdkProjectModules: () => typedError<ProjectModules, IdeError>(__TAURI_INVOKE("sdk_project_modules")),
 	/**  Looks up `names` (bare command names): `node_modules/.bin` above `near`, then the search path. */
 	sdkLocateTools: (names: string[], near: string | null) => typedError<LocatedTools, IdeError>(__TAURI_INVOKE("sdk_locate_tools", { names, near })),
 	/**  `base -m venv location`; output lines stream through `on_output`. */
@@ -2322,6 +2324,9 @@ export type DeletedBranch = {
 	unmerged: boolean,
 };
 
+/**  IDEA's dependency scopes. */
+export type DependencyScope = "compile" | "test" | "runtime" | "provided";
+
 /**  Where a local file is deployed. */
 export type DeployedPath = {
 	server: string,
@@ -3830,13 +3835,32 @@ export type LaunchConfig = {
 	extraJson: string | null,
 };
 
+export type LibraryCoordinate = {
+	groupId: string,
+	artifactId: string,
+	version: string,
+};
+
 /**  One SDK or library with its source folders (`< Python 3.12 (.venv) >`). */
 export type LibraryGroup = {
 	/**  Display name, e.g. `Python 3.12 (.venv)`. */
 	name: string,
-	/**  `python` | `jdk` | `nodeModules` | `nodeCore` | `rust` | `cargo` | `go` | `goModules` | `maven` | `gradle`. */
+	/**  `python` | `jdk` | `nodeModules` | `nodeCore` | `rust` | `cargo` | `go` | `goModules` | `maven` | `gradle` | `library`. */
 	kind: string,
 	roots: LibraryRoot[],
+};
+
+export type LibraryInfo = {
+	/**  `Maven: g:a:v`, `Gradle: g:a:v`, or the project library's name. */
+	name: string,
+	origin: ModuleOrigin,
+	coordinate: LibraryCoordinate | null,
+	/**  Jars / class folders. Imported libraries: the jar in the local repository, when downloaded. */
+	classes: string[],
+	/**  Source jars / folders. */
+	sources: string[],
+	/**  Names of the modules that depend on it. */
+	usedBy: string[],
 };
 
 export type LibraryRoot = {
@@ -3847,6 +3871,15 @@ export type LibraryRoot = {
 	name: string,
 	/**  A folder, or an archive's root (`<archive>!`). */
 	path: IpcPath,
+};
+
+/**  A project library from Project Structure › Libraries. */
+export type LibrarySettings = {
+	name?: string,
+	/**  Jars and class folders (project-relative or absolute). */
+	classes?: string[],
+	/**  Source jars and folders, attached for navigation. */
+	sources?: string[],
 };
 
 /**  Coverage of one source line. */
@@ -4188,6 +4221,68 @@ export type MethodStat = {
 	frame: number,
 	selfWeight: number | null,
 	total: number | null,
+};
+
+export type ModuleDependency = {
+	kind: ModuleDependencyKind,
+	/**  Library or module name; the path for `jar`. */
+	name: string,
+	scope: DependencyScope,
+	exported: boolean,
+	/**  Pulled in by another dependency rather than declared. */
+	transitive: boolean,
+};
+
+export type ModuleDependencyKind = 
+/**  A project library (`ProjectStructureSettings::libraries`). */
+"library" | 
+/**  Another module of the project. */
+"module" | 
+/**  A single jar or class folder ("JARs or Directories…"). */
+"jar";
+
+export type ModuleDependencySettings = {
+	kind?: ModuleDependencyKind,
+	/**  The library's or module's name; for `jar`, the jar or class folder path. */
+	name?: string,
+	scope?: DependencyScope,
+	/**  Exported to the modules that depend on this one. */
+	exported?: boolean,
+};
+
+export type ModuleInfo = {
+	name: string,
+	/**  Project-relative content root; `""` = the project folder. */
+	contentRoot: string,
+	origin: ModuleOrigin,
+	/**  The `pom.xml` / build script it was imported from (project-relative). */
+	buildFile: string | null,
+	/**  Java version the build compiles the module for. */
+	languageLevel: number | null,
+	dependencies: ModuleDependency[],
+};
+
+export type ModuleOrigin = "maven" | "gradle" | 
+/**  Added in Project Structure (editable). */
+"manual";
+
+/**  A module added in Project Structure › Modules. */
+export type ModuleSettings = {
+	/**  Unique among the project's modules. */
+	name?: string,
+	/**  Project-relative content root, `/`-separated; `""` = the project folder. */
+	contentRoot?: string,
+	/**  Module SDK (a JDK home); empty = the Project SDK. */
+	sdk?: string,
+	/**  Java feature version; empty = the project's language level. */
+	languageLevel?: string,
+	/**  Paths › Use module compile output path (else inherit the project's `<output>/production/<name>`). */
+	customOutput?: boolean,
+	/**  Output / Test output folders when `custom_output` (project-relative or absolute). */
+	output?: string,
+	testOutput?: string,
+	/**  Dependencies, in classpath order (the SDK and the module's own sources come first). */
+	dependencies?: ModuleDependencySettings[],
 };
 
 export type NewAgentTask = {
@@ -4626,6 +4721,12 @@ export type ProjectInfo_Serialize = {
 	settings: Settings_Serialize,
 };
 
+export type ProjectModules = {
+	modules: ModuleInfo[],
+	/**  Imported libraries first (sorted by name), then project libraries in settings order. */
+	libraries: LibraryInfo[],
+};
+
 export type ProjectRoots = {
 	/**  Effective roots, sorted by path. */
 	roots: SourceFolder[],
@@ -4647,6 +4748,17 @@ export type ProjectStructureSettings = {
 	contentRoots?: string[],
 	/**  "Exclude files": `;`-separated name patterns (`*.log;tmp*`) excluded at any depth. */
 	excludeFiles?: string,
+	/**
+	 *  Project › Language level: a Java feature version (`"17"`); empty = the SDK's default.
+	 *  The Project SDK itself is `languages.java.jdk`.
+	 */
+	languageLevel?: string,
+	/**  Project › Compiler output: project-relative or absolute folder; empty = `out`. */
+	compilerOutput?: string,
+	/**  Modules added by hand (Maven / Gradle modules are imported from the build, not stored). */
+	modules?: ModuleSettings[],
+	/**  Project libraries: named sets of jars / class folders that modules depend on. */
+	libraries?: LibrarySettings[],
 };
 
 export type ProxyKind = "http" | "socks";

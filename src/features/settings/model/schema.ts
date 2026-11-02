@@ -11,8 +11,10 @@ import {
   DEFAULT_LANGUAGES,
   DEFAULT_PROJECT_STRUCTURE,
   validateLanguages,
+  validateProjectModulesSettings,
   validateProjectStructure,
   type LanguagesValid,
+  type ProjectModulesSettingsValid,
   type ProjectStructureValid,
 } from "@/platform/languageSettings";
 import { EDITOR_EXTRA_DEFAULTS, validateEditorExtras, type EditorExtras } from "@/platform/editorSettings";
@@ -81,7 +83,7 @@ export interface ValidSettings extends WorkflowSettings {
   /** System Settings › HTTP Proxy (global). */
   proxy: ProxySettingsValid;
   languages: LanguagesValid;
-  projectStructure: ProjectStructureValid;
+  projectStructure: ProjectStructureValid & ProjectModulesSettingsValid;
   inspections: InspectionSettingsValid;
   /** Editor › Natural Languages › Spelling. */
   spelling: SpellingValid;
@@ -148,7 +150,7 @@ export const DEFAULT_SETTINGS: ValidSettings = {
   notifications: DEFAULT_NOTIFICATIONS,
   proxy: DEFAULT_PROXY,
   languages: DEFAULT_LANGUAGES,
-  projectStructure: DEFAULT_PROJECT_STRUCTURE,
+  projectStructure: { ...DEFAULT_PROJECT_STRUCTURE, ...validateProjectModulesSettings(undefined) },
   inspections: DEFAULT_INSPECTIONS,
   spelling: { ideWords: [], projectWords: [], customDictionaries: [] },
   tools: {},
@@ -251,7 +253,10 @@ export function validateSettings(raw: Settings | unknown): ValidSettings {
     notifications: validateNotifications(root.notifications),
     proxy: validateProxy(root.proxy),
     languages: validateLanguages(root.languages),
-    projectStructure: validateProjectStructure(root.projectStructure),
+    projectStructure: {
+      ...validateProjectStructure(root.projectStructure),
+      ...validateProjectModulesSettings(root.projectStructure),
+    },
     inspections: validateInspections(root.inspections),
     spelling: validateSpelling(root.spelling),
     tools: Object.fromEntries(

@@ -172,6 +172,114 @@ export function validateProjectStructure(raw: unknown): ProjectStructureValid {
   };
 }
 
+/** IDEA's dependency scopes (`ide_core::settings::DependencyScope`). */
+export type DependencyScope = "compile" | "test" | "runtime" | "provided";
+export const DEPENDENCY_SCOPES: readonly DependencyScope[] = ["compile", "test", "runtime", "provided"];
+
+/** `library`: a project library by name; `module`: another module; `jar`: a jar or class folder path. */
+export type ModuleDependencyKind = "library" | "module" | "jar";
+
+export interface ModuleDependencyValid {
+  kind: ModuleDependencyKind;
+  name: string;
+  scope: DependencyScope;
+  exported: boolean;
+}
+
+/** A hand-made module (`projectStructure.modules[]`). */
+export interface ModuleValid {
+  name: string;
+  /** Project-relative; `""` = the project folder. */
+  contentRoot: string;
+  /** JDK home; `""` = the Project SDK. */
+  sdk: string;
+  /** Java feature version; `""` = the project's language level. */
+  languageLevel: string;
+  customOutput: boolean;
+  output: string;
+  testOutput: string;
+  dependencies: ModuleDependencyValid[];
+}
+
+/** A project library (`projectStructure.libraries[]`). */
+export interface LibraryValid {
+  name: string;
+  classes: string[];
+  sources: string[];
+}
+
+/** Project Structure › Project / Modules / Libraries settings (the folder marks are `ProjectStructureValid`). */
+export interface ProjectModulesSettingsValid {
+  /** Java feature version; `""` = the SDK default. */
+  languageLevel: string;
+  /** `""` = `out`. */
+  compilerOutput: string;
+  modules: ModuleValid[];
+  libraries: LibraryValid[];
+}
+
+const strings = (v: unknown): string[] =>
+  Array.isArray(v) ? v.filter((x): x is string => typeof x === "string" && !!x.trim()).map((x) => x.trim()) : [];
+
+function validateDependency(raw: unknown): ModuleDependencyValid | null {
+  const d = obj(raw);
+  const name = text(d.name, "");
+  if (!name) return null;
+  return {
+    kind: oneOf(d.kind, ["library", "module", "jar"] as const, "library"),
+    name,
+    scope: oneOf(d.scope, DEPENDENCY_SCOPES, "compile"),
+    exported: bool(d.exported, false),
+  };
+}
+
+export function validateModule(raw: unknown): ModuleValid | null {
+  const m = obj(raw);
+  const name = text(m.name, "");
+  if (!name) return null;
+  return {
+    name,
+    contentRoot: typeof m.contentRoot === "string" ? normalizeFolder(m.contentRoot) : "",
+    sdk: text(m.sdk, ""),
+    languageLevel: text(m.languageLevel, ""),
+    customOutput: bool(m.customOutput, false),
+    output: text(m.output, ""),
+    testOutput: text(m.testOutput, ""),
+    dependencies: (Array.isArray(m.dependencies) ? m.dependencies : [])
+      .map(validateDependency)
+      .filter((d): d is ModuleDependencyValid => d !== null),
+  };
+}
+
+export function validateLibrary(raw: unknown): LibraryValid | null {
+  const l = obj(raw);
+  const name = text(l.name, "");
+  return name ? { name, classes: strings(l.classes), sources: strings(l.sources) } : null;
+}
+
+/** First occurrence of each name wins (names identify modules and libraries). */
+const uniqueByName = <T extends { name: string }>(list: T[]): T[] =>
+  list.filter((x, i) => list.findIndex((y) => y.name === x.name) === i);
+
+export function validateProjectModulesSettings(raw: unknown): ProjectModulesSettingsValid {
+  const p = obj(raw);
+  const list = (v: unknown) => (Array.isArray(v) ? v : []);
+  return {
+    languageLevel: text(p.languageLevel, ""),
+    compilerOutput: text(p.compilerOutput, ""),
+    modules: uniqueByName(
+      list(p.modules)
+        .map(validateModule)
+        .filter((m): m is ModuleValid => m !== null),
+    ),
+    libraries: uniqueByName(
+      list(p.libraries)
+        .map(validateLibrary)
+        .filter((l): l is LibraryValid => l !== null),
+    ),
+  };
+}
+
 /** Root kinds, as in IDEA's Project Structure (`ide-workspace::roots::RootKind`). */
 export type FolderRole = "source" | "test" | "resources" | "testResources" | "excluded";
 

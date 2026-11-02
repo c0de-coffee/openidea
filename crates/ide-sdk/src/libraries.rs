@@ -26,7 +26,7 @@ use std::time::{Duration, SystemTime};
 pub struct LibraryGroup {
     /// Display name, e.g. `Python 3.12 (.venv)`.
     pub name: String,
-    /// `python` | `jdk` | `nodeModules` | `nodeCore` | `rust` | `cargo` | `go` | `goModules` | `maven` | `gradle`.
+    /// `python` | `jdk` | `nodeModules` | `nodeCore` | `rust` | `cargo` | `go` | `goModules` | `maven` | `gradle` | `library`.
     pub kind: String,
     pub roots: Vec<LibraryRoot>,
 }
@@ -265,6 +265,74 @@ pub(crate) fn dependency_libraries(
                 &tool.to_lowercase(),
                 vec![LibraryRoot { name, path: ide_vfs::archive_root(&jar).into() }],
             )
+        })
+        .collect()
+}
+
+/// Finds dependency jars in the local Maven repository and the Gradle cache.
+pub struct JarLocator {
+    maven_repo: Option<PathBuf>,
+    gradle_home: Option<PathBuf>,
+}
+
+impl JarLocator {
+    pub fn new(root: &Path, s: &Settings) -> Self {
+        Self {
+            maven_repo: crate::apply::maven_local_repository(root, s).or_else(default_maven_repository),
+            gradle_home: gradle_user_home(),
+        }
+    }
+
+    /// `(classes jar, sources jar)` of `d`, each when downloaded.
+    pub fn locate(&self, d: &BuildDependency) -> (Option<PathBuf>, Option<PathBuf>) {
+        if !valid_coordinate(d) {
+            return (None, None);
+        }
+        let file = |suffix: &str| format!("{}-{}{suffix}", d.artifact, d.version);
+        let maven_dir =
+            self.maven_repo.as_ref().map(|r| r.join(d.group.replace('.', "/")).join(&d.artifact).join(&d.version));
+        let gradle_dirs: Vec<PathBuf> = self
+            .gradle_home
+            .as_ref()
+            .map(|h| h.join("caches/modules-2/files-2.1").join(&d.group).join(&d.artifact).join(&d.version))
+            .and_then(|dir| std::fs::read_dir(dir).ok())
+            .map(|entries| {
+                let mut v: Vec<PathBuf> = entries.flatten().map(|e| e.path()).collect();
+                v.sort();
+                v
+            })
+            .unwrap_or_default();
+        let find = |suffix: &str| {
+            let name = file(suffix);
+            let maven = || maven_dir.as_ref().map(|m| m.join(&name)).filter(|p| p.is_file());
+            let gradle = || gradle_dirs.iter().map(|h| h.join(&name)).find(|p| p.is_file());
+            if d.gradle { gradle().or_else(maven) } else { maven().or_else(gradle) }
+        };
+        (find(".jar"), find("-sources.jar"))
+    }
+}
+
+/// Project Structure › Libraries as External Libraries groups: sources when attached, else classes.
+pub fn project_structure_groups(root: &Path, s: &Settings) -> Vec<LibraryGroup> {
+    s.project_structure
+        .libraries
+        .iter()
+        .filter(|l| !l.name.trim().is_empty())
+        .filter_map(|l| {
+            let paths = if l.sources.iter().any(|p| !p.trim().is_empty()) { &l.sources } else { &l.classes };
+            let roots = paths
+                .iter()
+                .map(|p| p.trim())
+                .filter(|p| !p.is_empty())
+                .map(|p| root.join(p))
+                .filter(|p| p.exists())
+                .map(|p| {
+                    let name = p.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
+                    let path = if p.is_file() { ide_vfs::archive_root(&p) } else { p };
+                    LibraryRoot { name, path: path.into() }
+                })
+                .collect();
+            group(l.name.trim().to_owned(), "library", roots)
         })
         .collect()
 }

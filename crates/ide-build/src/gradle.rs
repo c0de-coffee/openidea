@@ -318,6 +318,37 @@ fn is_dependency_configuration(name: &str) -> bool {
 /// `implementation group: 'g', name: 'a', version: 'v'` (Groovy) / `group = "g", …` (Kotlin).
 /// Versions with interpolations, ranges and catalog aliases (`libs.x`) are skipped.
 pub fn script_dependencies(text: &str) -> Vec<(String, String, String)> {
+    script_declarations(text)
+        .into_iter()
+        .filter_map(|d| match d.target {
+            ScriptTarget::External { group, artifact, version } => Some((group, artifact, version)),
+            ScriptTarget::Project(_) => None,
+        })
+        .collect()
+}
+
+/// A dependency declared in a build script, with its configuration.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ScriptDependency {
+    /// `implementation`, `testImplementation`, `compileOnly`…
+    pub configuration: String,
+    pub target: ScriptTarget,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum ScriptTarget {
+    External {
+        group: String,
+        artifact: String,
+        version: String,
+    },
+    /// Gradle path of another project of the build (`project(':core')`).
+    Project(String),
+}
+
+/// Every dependency a build script declares (see [`script_dependencies`]), including
+/// `project(':path')` dependencies on other projects of the build.
+pub fn script_declarations(text: &str) -> Vec<ScriptDependency> {
     let text = strip_comments(text);
     let mut out = Vec::new();
     for line in text.lines().flat_map(|l| l.split(['{', ';'])) {
@@ -328,6 +359,12 @@ pub fn script_dependencies(text: &str) -> Vec<(String, String, String)> {
         }
         let rest = &line[name.len()..];
         let lits = literals(rest);
+        if let Some(i) = rest.find("project(") {
+            if let Some(path) = literals(&rest[i..]).into_iter().find(|l| l.starts_with(':')) {
+                out.push(ScriptDependency { configuration: name, target: ScriptTarget::Project(path) });
+            }
+            continue;
+        }
         let map_value = |key: &str| -> Option<String> {
             let i = rest.find(key)?;
             let after = rest[i + key.len()..].trim_start().strip_prefix([':', '='])?;
@@ -346,7 +383,10 @@ pub fn script_dependencies(text: &str) -> Vec<(String, String, String)> {
                 !s.is_empty() && s.chars().all(|c| c.is_ascii_alphanumeric() || matches!(c, '.' | '-' | '_' | '+'))
             };
             if plain(&g) && plain(&a) && plain(&v) && !v.contains('+') {
-                out.push((g, a, v));
+                out.push(ScriptDependency {
+                    configuration: name,
+                    target: ScriptTarget::External { group: g, artifact: a, version: v },
+                });
             }
         }
     }

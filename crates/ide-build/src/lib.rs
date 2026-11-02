@@ -8,6 +8,7 @@
 pub mod compile;
 pub mod gradle;
 pub mod maven;
+pub mod modules;
 pub mod pom_edit;
 mod process;
 mod sync;
@@ -114,6 +115,16 @@ pub fn dependency_coordinates(root: &Path, model: &BuildModel) -> Vec<Dependency
     out.sort();
     out.dedup();
     out
+}
+
+/// Project-relative folder: `/`-separated, no leading `./` or `/`, no trailing `/`; `""` = the root.
+pub(crate) fn normalize_rel(path: &str) -> String {
+    let mut p = path.trim().replace('\\', "/");
+    while let Some(rest) = p.strip_prefix("./") {
+        p = rest.to_owned();
+    }
+    let p = p.trim_matches('/');
+    if p == "." { String::new() } else { p.to_owned() }
 }
 
 /// Whether a created / changed / removed project-relative path can change the build model.

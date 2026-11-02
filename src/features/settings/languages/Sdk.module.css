@@ -216,10 +216,12 @@
 }
 .markBar {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 4px;
-  height: 30px;
-  padding: 0 6px;
+  min-height: 30px;
+  padding: 4px 6px;
+  white-space: nowrap;
   border-bottom: 1px solid var(--border);
   color: var(--fg-secondary);
 }

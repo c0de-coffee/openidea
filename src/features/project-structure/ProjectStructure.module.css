@@ -1,0 +1,304 @@
+/* IDEA Project Structure: section list on the left, master list + detail on the right. */
+.dialog {
+  height: min(720px, calc(100vh - 48px));
+  background: var(--bg-dialog, var(--bg-elev));
+}
+.layout {
+  height: 100%;
+  display: flex;
+  min-height: 0;
+  min-width: 0;
+}
+
+.nav {
+  flex: none;
+  width: 190px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 10px 0;
+  border-right: 1px solid var(--border);
+  overflow-y: auto;
+}
+.navGroup {
+  display: flex;
+  flex-direction: column;
+}
+.navTitle {
+  padding: 2px 12px 4px;
+  color: var(--fg-subtle);
+  font-size: 0.92em;
+}
+.navItem {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 26px;
+  padding: 0 12px 0 20px;
+  border: 0;
+  background: none;
+  color: var(--fg);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.navItem:hover {
+  background: var(--bg-hover);
+}
+.navActive,
+.navActive:hover {
+  background: var(--bg-tree-selected, var(--bg-list-selected));
+}
+
+.content {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Master list + detail (Modules, Libraries, SDKs). */
+.master {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+}
+.masterList {
+  flex: none;
+  width: 240px;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  border-right: 1px solid var(--border);
+}
+.list {
+  flex: 1;
+  min-height: 0;
+}
+.detail {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: auto;
+}
+.moduleDetail {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  padding-top: 10px;
+}
+.moduleDetail > .field {
+  padding: 0 16px;
+}
+.tabBody {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: auto;
+}
+
+.toolbar {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  min-height: 30px;
+  padding: 0 6px;
+  border-bottom: 1px solid var(--border);
+  flex-wrap: wrap;
+}
+.toolbarGap {
+  flex: 1;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  padding: 0 8px;
+}
+.rowName {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.rowHint {
+  color: var(--fg-subtle);
+  margin-left: 6px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px 16px;
+  min-width: 0;
+}
+.heading {
+  margin: 0;
+  font-size: 1.1em;
+  font-weight: 600;
+  color: var(--fg-strong);
+}
+.section {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+  color: var(--fg-strong);
+}
+.note {
+  margin: 0;
+  color: var(--fg-secondary);
+}
+.empty {
+  padding: 16px;
+  color: var(--fg-subtle);
+}
+.error {
+  color: var(--danger);
+}
+
+.field {
+  display: grid;
+  grid-template-columns: 140px minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+}
+.fieldLabel {
+  color: var(--fg);
+}
+.fieldControl {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  max-width: 520px;
+}
+.hint {
+  color: var(--fg-subtle);
+  font-size: 0.92em;
+}
+.input,
+.select {
+  width: 100%;
+}
+.pathRow {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.radio {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.banner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 8px 16px;
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  background: var(--bg-island, var(--bg-elev));
+  color: var(--fg-secondary);
+}
+.banner > span {
+  flex: 1;
+}
+
+/* Dependencies table. */
+.table {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-small);
+  min-height: 120px;
+  overflow: auto;
+}
+.tableRow {
+  display: grid;
+  grid-template-columns: 56px minmax(0, 1fr) 130px;
+  align-items: center;
+  gap: 8px;
+  min-height: 26px;
+  padding: 0 8px;
+}
+.tableHead {
+  color: var(--fg-subtle);
+  border-bottom: 1px solid var(--border);
+}
+.fixedRow {
+  color: var(--fg-secondary);
+}
+.activeRow {
+  background: var(--bg-list-selected);
+}
+.transitive {
+  color: var(--fg-subtle);
+}
+.depName {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+}
+.scopeSelect {
+  width: 120px;
+}
+
+.chooserBody {
+  padding: 14px;
+}
+.chooser {
+  display: flex;
+  flex-direction: column;
+  max-height: 360px;
+  overflow: auto;
+  padding: 4px;
+  border-radius: var(--radius-small);
+  box-shadow: inset 0 0 0 1px var(--border);
+}
+.chooserRow {
+  padding: 3px 8px;
+  border-radius: var(--radius-small);
+}
+.chooserRow:hover {
+  background: var(--bg-toolbar-hover);
+}
+
+.libSection {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.pathItem {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding-left: 22px;
+  min-height: 22px;
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px;
+}
+.form .field {
+  grid-template-columns: 100px minmax(0, 1fr);
+}

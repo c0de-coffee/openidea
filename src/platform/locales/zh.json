@@ -360,6 +360,7 @@
   "menu.file.newProject": "新建项目…",
   "menu.file.renameProject": "重命名项目…",
   "menu.file.reloadAllFromDisk": "从磁盘全部重新加载",
+  "menu.file.projectStructure": "项目结构…",
   "menu.file.invalidateCaches": "清除缓存…",
   "menu.manageIdeSettings": "管理 IDE 设置",
   "menu.file.exportSettings": "导出设置…",

@@ -632,9 +632,113 @@ pub struct ProjectStructureSettings {
     pub content_roots: Vec<String>,
     /// "Exclude files": `;`-separated name patterns (`*.log;tmp*`) excluded at any depth.
     pub exclude_files: String,
+    /// Project › Language level: a Java feature version (`"17"`); empty = the SDK's default.
+    /// The Project SDK itself is `languages.java.jdk`.
+    pub language_level: String,
+    /// Project › Compiler output: project-relative or absolute folder; empty = `out`.
+    pub compiler_output: String,
+    /// Modules added by hand (Maven / Gradle modules are imported from the build, not stored).
+    pub modules: Vec<ModuleSettings>,
+    /// Project libraries: named sets of jars / class folders that modules depend on.
+    pub libraries: Vec<LibrarySettings>,
+}
+
+/// A module added in Project Structure › Modules.
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize, Type)]
+#[serde(default, rename_all = "camelCase")]
+pub struct ModuleSettings {
+    /// Unique among the project's modules.
+    pub name: String,
+    /// Project-relative content root, `/`-separated; `""` = the project folder.
+    pub content_root: String,
+    /// Module SDK (a JDK home); empty = the Project SDK.
+    pub sdk: String,
+    /// Java feature version; empty = the project's language level.
+    pub language_level: String,
+    /// Paths › Use module compile output path (else inherit the project's `<output>/production/<name>`).
+    pub custom_output: bool,
+    /// Output / Test output folders when `custom_output` (project-relative or absolute).
+    pub output: String,
+    pub test_output: String,
+    /// Dependencies, in classpath order (the SDK and the module's own sources come first).
+    pub dependencies: Vec<ModuleDependencySettings>,
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize, Type)]
+#[serde(default, rename_all = "camelCase")]
+pub struct ModuleDependencySettings {
+    pub kind: ModuleDependencyKind,
+    /// The library's or module's name; for `jar`, the jar or class folder path.
+    pub name: String,
+    pub scope: DependencyScope,
+    /// Exported to the modules that depend on this one.
+    pub exported: bool,
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, Serialize, Deserialize, Type)]
+#[serde(rename_all = "camelCase")]
+pub enum ModuleDependencyKind {
+    /// A project library (`ProjectStructureSettings::libraries`).
+    #[default]
+    Library,
+    /// Another module of the project.
+    Module,
+    /// A single jar or class folder ("JARs or Directories…").
+    Jar,
+}
+
+/// IDEA's dependency scopes.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Type)]
+#[serde(rename_all = "camelCase")]
+pub enum DependencyScope {
+    #[default]
+    Compile,
+    Test,
+    Runtime,
+    Provided,
+}
+
+/// A project library from Project Structure › Libraries.
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize, Type)]
+#[serde(default, rename_all = "camelCase")]
+pub struct LibrarySettings {
+    pub name: String,
+    /// Jars and class folders (project-relative or absolute).
+    pub classes: Vec<String>,
+    /// Source jars and folders, attached for navigation.
+    pub sources: Vec<String>,
 }
 
 impl ProjectStructureSettings {
+    /// Jars and class folders the hand-made modules depend on (their libraries' and
+    /// their own), deduplicated in dependency order, each with its source attachment.
+    /// Library sources pair with classes by position (a jar and its sources jar).
+    pub fn manual_classpath(&self) -> Vec<(String, Option<String>)> {
+        let mut out: Vec<(String, Option<String>)> = Vec::new();
+        let mut push = |path: &str, source: Option<&str>| {
+            let path = path.trim();
+            if !path.is_empty() && !out.iter().any(|(p, _)| p == path) {
+                out.push((path.to_owned(), source.map(str::trim).filter(|s| !s.is_empty()).map(str::to_owned)));
+            }
+        };
+        for m in &self.modules {
+            for d in &m.dependencies {
+                match d.kind {
+                    ModuleDependencyKind::Jar => push(&d.name, None),
+                    ModuleDependencyKind::Library => {
+                        if let Some(lib) = self.libraries.iter().find(|l| l.name.trim() == d.name.trim()) {
+                            for (i, c) in lib.classes.iter().enumerate() {
+                                push(c, lib.sources.get(i).map(String::as_str));
+                            }
+                        }
+                    }
+                    ModuleDependencyKind::Module => {}
+                }
+            }
+        }
+        out
+    }
+
     /// The "Exclude files" name patterns.
     pub fn exclude_file_patterns(&self) -> Vec<String> {
         self.exclude_files.split(';').map(str::trim).filter(|p| !p.is_empty()).map(str::to_owned).collect()

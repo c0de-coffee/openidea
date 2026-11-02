@@ -35,6 +35,16 @@ pub async fn sdk_project_libraries(
     ide_host::ops::sdk::sdk_project_libraries(&state.host, window.label()).await
 }
 
+/// Project Structure › Modules / Libraries: imported (Maven / Gradle) and hand-made modules and libraries.
+#[tauri::command]
+#[specta::specta]
+pub async fn sdk_project_modules(
+    window: Window,
+    state: State<'_, AppState>,
+) -> IdeResult<ide_build::modules::ProjectModules> {
+    ide_host::ops::sdk::sdk_project_modules(&state.host, window.label()).await
+}
+
 /// Looks up `names` (bare command names): `node_modules/.bin` above `near`, then the search path.
 #[tauri::command]
 #[specta::specta]

@@ -21,6 +21,7 @@ describe("title bar gear menu", () => {
       "runAnything.show",
       "separator",
       "file.settings",
+      "file.projectStructure",
       "plugins.settings",
       "separator",
       "Theme",
@@ -32,13 +33,13 @@ describe("title bar gear menu", () => {
       "app.checkForUpdates",
     ]);
     type Sub = { submenu: Array<{ label?: string; checked?: boolean; action?: string }> };
-    const theme = (items[5] as Sub).submenu;
+    const theme = (items[6] as Sub).submenu;
     expect(theme.filter((i) => i.checked).map((i) => i.label)).toEqual(["Islands Dark"]);
-    const keymap = (items[6] as Sub).submenu;
+    const keymap = (items[7] as Sub).submenu;
     expect(keymap.map((i) => i.label)).toContain("Mine");
     expect(keymap.filter((i) => i.checked).map((i) => i.label)).toEqual(["macOS"]);
     // View Mode only switches the existing modes.
-    expect((items[7] as Sub).submenu.map((i) => i.action)).toEqual(["editor.toggleZen", "window.toggleFullScreen"]);
+    expect((items[8] as Sub).submenu.map((i) => i.action)).toEqual(["editor.toggleZen", "window.toggleFullScreen"]);
   });
 
   it("lists every widget with a checkbox in Customize Main Toolbar", () => {
